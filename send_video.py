@@ -243,13 +243,14 @@ def startAudioCaptureLinux():
     audioDevNum = robotSettings.audio_device_number
 
     if robotSettings.audio_device_name is not None:
-        audioDevNum = audio_util.getAudioRecordingDeviceByName(robotSettings.audio_device_name)
+        audioDevNum = audio_util.getAudioRecordingCardByName(robotSettings.audio_device_name)
         if audioDevNum is None:
           raise Exception("the name doesn't exist" + robotSettings.audio_device_name)
         
     print((robotSettings.ffmpeg_path, audioRate, robotSettings.mic_channels, audioDevNum, audioHost, audioPort, robotSettings.stream_key))
     #audioCommandLine = '%s -f alsa -ar 44100 -ac %d -i hw:%d -f mpegts -codec:a mp2 -b:a 32k -muxdelay 0.001 http://%s:%s/%s/640/480/' % (robotSettings.ffmpeg_path, robotSettings.mic_channels, audioDevNum, audioHost, audioEndpoint['port'], robotSettings.stream_key)
-    audioCommandLine = '%s -f alsa -ar %d -ac %d -i hw:%d -f mpegts -codec:a mp2 -b:a 64k -muxdelay 0.01 http://%s:%s/%s/640/480/'\
+    #note: -channels seems to work rather than -ac now
+    audioCommandLine = '%s -f alsa -ar %d -channels %d -i hw:%d -f mpegts -codec:a mp2 -b:a 64k -muxdelay 0.01 http://%s:%s/%s/640/480/'\
                         % (robotSettings.ffmpeg_path, audioRate, robotSettings.mic_channels, audioDevNum, audioHost, audioPort, robotSettings.stream_key)
     print(audioCommandLine)
     if commandArgs.usb_reset_id != None:
@@ -406,7 +407,7 @@ def startRTCffmpeg(videoEndpoint, SSRCV, audioEndpoint, SSRCA):
 
     audioDevNum = robotSettings.audio_device_number
     if robotSettings.audio_device_name is not None:
-        audioDevNum = audio_util.getAudioRecordingDeviceByName(robotSettings.audio_device_name)
+        audioDevNum = audio_util.getAudioRecordingCardByName(robotSettings.audio_device_name)
     
     if robotSettings.protocol == 'video/VP8':
         #ffmpeg -h encoder=libvpx

@@ -11,20 +11,19 @@ import traceback
 import subprocess
 
 
-
-statusEndpoint = {'host': 'status.robotstreamer.com', 'port': 6020}
-
-
-
 parser = argparse.ArgumentParser(description='start reverse ssh program')
 parser.add_argument('robot_id', help='Robot ID')
 parser.add_argument('--reverse-ssh-host', default='name@52.1.2.3')
 parser.add_argument('--reverse-ssh-key-file', default='/home/pi/rsjumpbox0.pem')
+parser.add_argument('--status-host', default='status.robotstreamer.com')
+parser.add_argument('--status-port', default=6020, type=int)
 
 
 commandArgs = parser.parse_args()
 
 robotID = commandArgs.robot_id
+
+statusEndpoint = {'host': commandArgs.status_host, 'port': commandArgs.status_port}
 
 print("robot id:", robotID)
 
@@ -40,6 +39,7 @@ async def startReverseSSH(websocketToStatusService):
     
     try:
         commandList = ["/usr/bin/ssh",
+                       "-v",
                        "-X",
                        "-i", commandArgs.reverse_ssh_key_file,
                        "-N",
@@ -73,12 +73,12 @@ async def handleStatusMessages():
     print("running handle status messages")
 
     url = 'ws://%s:%s' % (statusEndpoint['host'], statusEndpoint['port'])
-    print("chat url:", url)
+    print("url:", url)
 
     async with websockets.connect(url) as websocket:
 
-        print("connected to control service at", url)
-        print("chat websocket object:", websocket)
+        print("connected to service at", url)
+        print("websocket object:", websocket)
 
         print("starting websocket.send")
         await websocket.send(json.dumps({"type":"connect",

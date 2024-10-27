@@ -54,9 +54,9 @@ echo '# suggested use for this:' >> ~/start_robot
 echo '# (1) Put in the ids for your robot, YOURROBOTID and YOURCAMERAID' >> ~/start_robot
 echo '# (2) use sudo to create a crontab entry: @reboot /bin/bash /home/pi/start_robot' >> ~/start_robot
 echo 'cd /home/pi/robotstreamer' >> ~/start_robot
-echo "nohup scripts/repeat_start /usr/bin/python3 reverse_ssh.py ${input_robot} &> /dev/null &" >> ~/start_robot
-echo "nohup scripts/repeat_start /usr/bin/python3 controller.py ${input_robot} --stream-key ${input_stream_key} &> /dev/null &" >> ~/start_robot
-echo "nohup scripts/repeat_start /usr/bin/python3 send_video.py ${input_camera} 0 --stream-key ${input_stream_key} --ffmpeg-path /usr/bin/ffmpeg &> /dev/null &" >> ~/start_robot
+echo "nohup scripts/repeat_start /usr/bin/python3 -u reverse_ssh.py ${input_robot} &> /dev/null &" >> ~/start_robot
+echo "nohup scripts/repeat_start /usr/bin/python3 -u controller.py ${input_robot} --stream-key ${input_stream_key} &> /dev/null &" >> ~/start_robot
+echo "nohup scripts/repeat_start /usr/bin/python3 -u send_video.py ${input_camera} 0 --stream-key ${input_stream_key} --ffmpeg-path /usr/bin/ffmpeg &> /dev/null &" >> ~/start_robot
 # Make sure the system is up to date
 sudo apt-get -y update
 sudo apt-get -y install python3-pip
@@ -66,14 +66,16 @@ sudo apt-get -y install python3-pip
 # Start installing everything needed
 #sudo apt-get -y install python-serial python-dev libgnutls28-dev espeak python-smbus python-pip git
 sudo apt-get -y install espeak git
-sudo pip3 install websockets
-sudo pip3 install pyusb
-sudo pip3 install ws4py
+sudo pip3 install websockets --break-system-packages
+sudo pip3 install pyusb --break-system-packages
+sudo pip3 install ws4py --break-system-packages
+sudo pip3 install adafruit-circuitpython-motorkit --break-system-packages
 cd ~ &&\
-git clone https://github.com/adafruit/Adafruit-Motor-HAT-Python-Library.git &&\
-cd Adafruit-Motor-HAT-Python-Library &&\
-sudo python3 setup.py install &&\
-sudo apt-get -y install emacs &&\
+#git clone https://github.com/adafruit/Adafruit-Motor-HAT-Python-Library.git &&\
+#cd Adafruit-Motor-HAT-Python-Library &&\
+#sudo python3 setup.py install &&\
+#sudo pip3 install git+https://github.com/adafruit/Adafruit-Motor-HAT-Python-Library.git --break
+sudo apt-get -y install emacs
 #sudo apt-get -y install python-dev &&\
 #cd ~ &&\
 #wget ftp://ftp.alsa-project.org/pub/lib/alsa-lib-1.0.25.tar.bz2 &&\

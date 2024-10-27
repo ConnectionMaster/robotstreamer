@@ -11,6 +11,7 @@ import tempfile
 import uuid
 import audio
 import datetime
+import importlib
 import audio_util
 try:
     import google_tts
@@ -40,13 +41,13 @@ parser.add_argument('--left', default='[1,1,1,1]')
 parser.add_argument('--no-secure-cert', dest='secure_cert', action='store_false')
 parser.add_argument('--voice-number', type=int, default=1)
 parser.add_argument('--male', dest='male', action='store_true')
-parser.add_argument('--tts-synth', help='options: espeak, festival, google')
+parser.add_argument('--tts-synth', default="espeak", help='options: espeak, festival, google, local_service')
 parser.add_argument('--play-nontts-softly', dest='play_nontts_softly', action='store_true')
 parser.add_argument('--enable-ping-pong', dest='enable_ping_pong', action='store_true')
 parser.set_defaults(enable_ping_pong=False)
 parser.add_argument('--tts-volume', type=int, default=80)
-parser.add_argument('--audio-output-hardware-name', default=None)
-parser.add_argument('--audio-output-hardware-number', type=int, default=None)
+parser.add_argument('--audio-output-card-name', default=None)
+parser.add_argument('--audio-output-card-number', type=int, default=None)
 parser.add_argument('--tts-pitch', type=int, default=50)
 parser.add_argument('--type', default="rsbot")
 parser.add_argument('--no-tls-chat', dest='tls_chat', action='store_false')
@@ -144,9 +145,16 @@ elif commandArgs.type == "blank":
 elif commandArgs.type == "serial":
             import serial_interface as interface
 
-elif commandArgs.type == "sexbot":
-            import sexbot_interface as interface
+elif commandArgs.type == "bot":
+            import bot_interface as interface
             interface.init(commandArgs)
+
+else:
+    print("loading custom interface", commandArgs.type)
+    interface = importlib.import_module(commandArgs.type)
+    interface.init(commandArgs) # your interface module should have an init fuction that takes one parameter
+
+
 
 # set volume level
 
@@ -155,20 +163,26 @@ elif commandArgs.type == "sexbot":
 #if commandArgs.tts_volume > 50:
     #os.system("amixer set PCM -- -100")
 
+def setVolumeOnCard(cardNumber, percent):
+    for numid in range(0,5):
+        print("---------------------")
+        print("setting volume on card number:", cardNumber, "numid:", numid)
+        os.system("amixer -c %d cset numid=%d %d%%" % (cardNumber, numid, percent))
+        print("---------------------")    
 
+                
 def setVolume(percent):
-            print("setting volume to", percent, "%")
-            for cardNumber in range(0, 5):
-                        for numid in range(0,5):
-                                    if cardNumber == 1 and numid == 3:
-                                                # this is audio input level so don't set it
-                                                continue
-                                    print("---------------------")
-                                    print("setting card number:", cardNumber, "numid:", numid)
-                                    os.system("amixer -c %d cset numid=%d %d%%" % (cardNumber, numid, percent))
-                                    print("---------------------")
-                                    #time.sleep(5)
-            
+    print("setting volume to", percent, "%")
+    if commandArgs.audio_output_card_name is not None:
+        audioOutputCardNumber = audio_util.getAudioPlayingCardByName(commandArgs.audio_output_card_name)
+        setVolumeOnCard(audioOutputCardNumber, percent)
+    else:
+        print("warning: you should specify the audio output with --audio-output-card-name")
+        print("because the audio output card is not specified, volume will be adjusted on all")
+        #todo: it really should not change the audio input card settings (only audio output)
+        for cardNumber in range(0, 5):
+            setVolumeOnCard(cardNumber, percent)
+           
 
 # volume=1 is normal
 def espeak(hardwareNumber, message, voice, volume):
@@ -253,22 +267,12 @@ def espeakMac(message, voice):
 
 def say(message, messageVolume, voice='en-us'):
 
-    audioOutputNumber = commandArgs.audio_output_hardware_number
+    audioOutputNumber = commandArgs.audio_output_card_number
             
-    if commandArgs.audio_output_hardware_name is not None:
-        audioOutputNumber = audio_util.getAudioPlayingDeviceByName(commandArgs.audio_output_hardware_name)
+    if commandArgs.audio_output_card_name is not None:
+        audioOutputNumber = audio_util.getAudioPlayingCardByName(commandArgs.audio_output_card_name)
 
 
-    if commandArgs.tts_synth == "google":
-        # google text to speach api
-        if audioOutputNumber is None: # if none specified try many
-            for hardwareNumber in (0, 2, 3, 1, 4):
-                google_tts.speak(message, hardwareNumber)
-        else:
-            google_tts.speak(message, audioOutputNumber)
-        return
-
-        
     os.system("killall espeak")
     
     if voice not in allowedVoices:
@@ -283,11 +287,26 @@ def say(message, messageVolume, voice='en-us'):
 
     #os.system('"C:\Program Files\Jampal\ptts.vbs" -u ' + tempFilePath) Whaa?
 
+    if commandArgs.tts_synth == "google":
+        # google text to speach api
+        if audioOutputNumber is None: # if none specified try many
+            for hardwareNumber in (0, 2, 3, 1, 4):
+                google_tts.speak(message, hardwareNumber)
+        else:
+            google_tts.speak(message, audioOutputNumber)
+        return
 
-    if commandArgs.tts_synth == "festival":
+    elif commandArgs.tts_synth == "local_service":
+        try:
+            audio_util.postToLocalSpeechService(message, audioOutputNumber)
+        except Exception as e:
+            print(f"An exception occurred: {e}")
+        
+    elif commandArgs.tts_synth == "festival":
         # festival tts
         os.system('festival --tts < ' + tempFilePath)
-    else:
+
+    elif commandArgs.tts_synth == "espeak":
         # espeak tts
         #todo: these could be defined in the interface modules perhaps
 
@@ -304,7 +323,8 @@ def say(message, messageVolume, voice='en-us'):
                                     #_thread.start_new_thread(espeak, (audioOutputNumber, message, voice, messageVolume))
                                     print("espeak on a specific audio output")
                                     espeak(audioOutputNumber, message, voice, messageVolume)
-
+    else:
+        raise Exception("invalid option for --tts-synth")
 
     os.remove(tempFilePath)
 
@@ -429,6 +449,9 @@ async def handleChatMessages():
 
     h = getChatHost(commandArgs.tls_chat)
 
+    if h == False:
+        raise Exception("failed to get valid chat host")
+
     if commandArgs.tls_chat: h['protocol'] = 'wss'
     else: h['protocol'] = 'ws'
 
@@ -524,6 +547,8 @@ def startControl():
 
 def startChat():
         time.sleep(10) #todo: only wait as needed (wait for interenet)
+        if not commandArgs.disable_volume_set:
+            setVolume(commandArgs.tts_volume)
         print("restarting loop")
         time.sleep(0.25)
 
